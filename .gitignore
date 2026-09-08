@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.Python
+build/
+dist/
+
+# Virtual env
+.venv/
+venv/
+env/
+
+# Django
+*.log
+db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
+
+# Env vars (keep .env.example committed, never the real .env)
+.env
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
+
+# Tests
+.pytest_cache/
+.coverage
+htmlcov/
