@@ -37,7 +37,7 @@ class Review(UniqueID, TimeStampedModel):
         verbose_name_plural = 'Reviews'
         constraints = [
             models.CheckConstraint(
-                check=Q(rating__gte=1) & Q(rating__lte=5),
+                condition=Q(rating__gte=1) & Q(rating__lte=5),
                 name='review_rating_between_1_and_5',
             ),
             models.UniqueConstraint(

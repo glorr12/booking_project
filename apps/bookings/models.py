@@ -54,7 +54,7 @@ class Booking(UniqueID, TimeStampedModel):
         verbose_name_plural = 'Bookings'
         constraints = [
             models.CheckConstraint(
-                check=Q(end_date__gt=F('start_date')),
+                condition=Q(end_date__gt=F('start_date')),
                 name='booking_end_date_after_start_date',
             ),
         ]
