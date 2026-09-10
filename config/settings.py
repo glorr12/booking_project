@@ -46,17 +46,14 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
-    'apps.listings.apps.ListingsConfig',
-    'apps.bookings.apps.BookingsConfig',
-    'apps.users.apps.UsersConfig',
-    'apps.reviews.apps.ReviewsConfig'
     'djmoney',
     'simple_history',
-    'apps.users',
-    'apps.listings',
-    'apps.bookings',
-    'apps.reviews',
-    'apps.statistics',
+
+    'apps.users.apps.UsersConfig',
+    'apps.listings.apps.ListingsConfig',
+    'apps.bookings.apps.BookingsConfig',
+    'apps.reviews.apps.ReviewsConfig',
+    'apps.statistics.apps.StatisticsConfig',
 ]
 
 MIDDLEWARE = [
