@@ -1,0 +1,32 @@
+from rest_framework import serializers
+
+from apps.bookings.models import BookingStatus
+from apps.reviews.models import Review
+
+
+class ReviewSerializer(serializers.ModelSerializer):
+    author = serializers.HiddenField(default=serializers.CurrentUserDefault())
+    author_name = serializers.CharField(source='author.name', read_only=True)
+    listing_title = serializers.CharField(source='listing.title', read_only=True)
+
+    class Meta:
+        model = Review
+        fields = (
+            'id', 'booking', 'listing', 'listing_title', 'author', 'author_name',
+            'rating', 'text', 'created_at',
+        )
+        read_only_fields = ('id', 'listing', 'created_at')
+
+    def validate(self, attrs):
+        request = self.context['request']
+        booking = attrs.get('booking', getattr(self.instance, 'booking', None))
+
+        if booking.tenant_id != request.user.id:
+            raise serializers.ValidationError('You can only review your own booking.')
+        if booking.status != BookingStatus.COMPLETED:
+            raise serializers.ValidationError('You can only review a completed booking.')
+        if hasattr(booking, 'review') and booking.review_id != getattr(self.instance, 'pk', None):
+            raise serializers.ValidationError('This booking already has a review.')
+
+        attrs['listing'] = booking.listing
+        return attrs
