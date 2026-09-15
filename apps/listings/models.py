@@ -38,3 +38,23 @@ class Listing(UniqueID, TimeStampedModel):
         ordering = ('-created_at',)
         verbose_name = 'Listing'
         verbose_name_plural = 'Listings'
+
+
+class ListingImage(UniqueID, TimeStampedModel):
+    listing = models.ForeignKey(
+        Listing,
+        on_delete=models.CASCADE,
+        related_name='images',
+        verbose_name='Listing',
+    )
+    image = models.ImageField(upload_to='booking_project/media/photos', verbose_name='Image')
+    order = models.PositiveIntegerField(default=0, verbose_name='Order')
+
+    def __str__(self):
+        return f'Image for {self.listing_id} (#{self.order})'
+
+    class Meta:
+        db_table = 'listing_images'
+        ordering = ('order', 'created_at')
+        verbose_name = 'Listing image'
+        verbose_name_plural = 'Listing images'
