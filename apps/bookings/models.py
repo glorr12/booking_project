@@ -2,6 +2,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import F, Q
+from djmoney.models.fields import MoneyField
 from simple_history.models import HistoricalRecords
 
 from core.models import TimeStampedModel, UniqueID
@@ -13,6 +14,7 @@ class BookingStatus(models.TextChoices):
     REJECTED = 'rejected', 'Rejected'
     CANCELLED = 'cancelled', 'Cancelled'
     COMPLETED = 'completed', 'Completed'
+    EXPIRED = 'expired', 'Expired'
 
 
 class Booking(UniqueID, TimeStampedModel):
@@ -30,11 +32,23 @@ class Booking(UniqueID, TimeStampedModel):
     )
     start_date = models.DateField(verbose_name='Start date')
     end_date = models.DateField(verbose_name='End date')
+    guests_count = models.PositiveIntegerField(default=1, verbose_name='Guests count')
     status = models.CharField(
         max_length=10,
         choices=BookingStatus.choices,
         default=BookingStatus.PENDING,
         verbose_name='Status',
+    )
+    total_price = MoneyField(
+        max_digits=10,
+        decimal_places=2,
+        default_currency='EUR',
+        null=True,
+        blank=True,
+        editable=False,
+        verbose_name='Total price',
+        help_text="Snapshot of listing.price × nights at the time the booking was made - "
+                  "doesn't change if the listing's price changes later.",
     )
 
     history = HistoricalRecords()

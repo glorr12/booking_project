@@ -1,6 +1,7 @@
 from django.contrib.auth.base_user import AbstractBaseUser, BaseUserManager
 from django.contrib.auth.models import PermissionsMixin
 from django.db import models
+from simple_history.models import HistoricalRecords
 
 from core.models import TimeStampedModel, UniqueID
 
@@ -19,6 +20,7 @@ class AccountManager(BaseUserManager):
 
         extra_fields.setdefault('is_staff', False)
         extra_fields.setdefault('is_superuser', False)
+        extra_fields.setdefault('is_landlord', extra_fields.get('role') == AccountRole.LANDLORD)
 
         account = self.model(email=self.normalize_email(email), **extra_fields)
         account.set_password(password)
@@ -49,8 +51,13 @@ class User(UniqueID, TimeStampedModel, AbstractBaseUser, PermissionsMixin):
     )
     is_staff = models.BooleanField(default=False, verbose_name='Staff status')
     is_active = models.BooleanField(default=True, verbose_name='Active')
+    # `role` is kept as the user's primary/default persona; `is_landlord` is separate so a
+    # tenant can also list properties without switching their whole account over.
+    is_landlord = models.BooleanField(default=False, verbose_name='Can list properties')
 
     objects = AccountManager()
+
+    history = HistoricalRecords()
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['name']

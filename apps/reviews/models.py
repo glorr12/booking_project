@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.db import models
 from django.db.models import Q
+from simple_history.models import HistoricalRecords
 
 from core.models import TimeStampedModel, UniqueID
 
@@ -26,6 +27,8 @@ class Review(UniqueID, TimeStampedModel):
     )
     rating = models.PositiveSmallIntegerField(verbose_name='Rating')
     text = models.TextField(verbose_name='Text')
+
+    history = HistoricalRecords()
 
     def __str__(self):
         return f'Review for listing #{self.listing_id} ({self.rating}/5)'
