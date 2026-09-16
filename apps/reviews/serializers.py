@@ -1,3 +1,4 @@
+from django.core.validators import MaxValueValidator, MinValueValidator
 from rest_framework import serializers
 
 from apps.bookings.models import BookingStatus
@@ -8,6 +9,7 @@ class ReviewSerializer(serializers.ModelSerializer):
     author = serializers.HiddenField(default=serializers.CurrentUserDefault())
     author_name = serializers.CharField(source='author.name', read_only=True)
     listing_title = serializers.CharField(source='listing.title', read_only=True)
+    rating = serializers.IntegerField(validators=[MinValueValidator(1), MaxValueValidator(5)])
 
     class Meta:
         model = Review
