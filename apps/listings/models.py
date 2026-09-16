@@ -5,7 +5,7 @@ from django.db.models import F, Q
 from djmoney.models.fields import MoneyField
 from simple_history.models import HistoricalRecords
 
-from core.models import TimeStampedModel, UniqueID
+from core.models import SoftDeleteModel, TimeStampedModel, UniqueID
 
 
 class HousingType(models.TextChoices):
@@ -14,7 +14,7 @@ class HousingType(models.TextChoices):
     STUDIO = 'studio', 'Studio'
 
 
-class Listing(UniqueID, TimeStampedModel):
+class Listing(UniqueID, TimeStampedModel, SoftDeleteModel):
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
