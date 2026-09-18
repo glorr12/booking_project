@@ -11,15 +11,17 @@ MAX_BOOKING_DURATION_DAYS = 30
 class BookingSerializer(serializers.ModelSerializer):
 
     tenant = serializers.HiddenField(default=serializers.CurrentUserDefault())
+    tenant_id = serializers.UUIDField(read_only=True)
     listing = serializers.PrimaryKeyRelatedField(queryset=Listing.objects.filter(is_active=True))
     listing_title = serializers.CharField(source='listing.title', read_only=True)
+    listing_owner_id = serializers.UUIDField(source='listing.owner_id', read_only=True)
     guests_count = serializers.IntegerField(min_value=1, default=1)
 
     class Meta:
         model = Booking
         fields = (
-            'id', 'listing', 'listing_title', 'tenant', 'start_date', 'end_date',
-            'guests_count', 'status', 'total_price', 'created_at',
+            'id', 'listing', 'listing_title', 'listing_owner_id', 'tenant', 'tenant_id',
+            'start_date', 'end_date', 'guests_count', 'status', 'total_price', 'created_at',
         )
         read_only_fields = ('id', 'status', 'total_price', 'created_at')
 

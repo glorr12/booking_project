@@ -24,6 +24,7 @@ class ListingImageSerializer(serializers.ModelSerializer):
 
 class ListingSerializer(serializers.ModelSerializer):
     owner = serializers.HiddenField(default=serializers.CurrentUserDefault())
+    owner_id = serializers.UUIDField(read_only=True)
     owner_name = serializers.CharField(source='owner.name', read_only=True)
     images = ListingImageSerializer(many=True, read_only=True)
     average_rating = serializers.SerializerMethodField()
@@ -35,7 +36,7 @@ class ListingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Listing
         fields = (
-            'id', 'owner', 'owner_name', 'title', 'description', 'city', 'district',
+            'id', 'owner', 'owner_id', 'owner_name', 'title', 'description', 'city', 'district',
             'price', 'rooms_count', 'housing_type', 'is_active', 'max_guests', 'images',
             'average_rating', 'reviews_count', 'created_at',
         )
