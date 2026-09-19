@@ -143,6 +143,12 @@ class BookingViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def cancel(self, request, pk=None):
+        """
+        Пользовательское действие  для отмены бронирования арендатором
+        - Отменить бронирование может исключительно арендатор, который его создал (иначе возвращается 403 Forbidden)
+        - Бронь должна находиться в допустимом статусе (PENDING или CONFIRMED)
+        - Отмена возможна не позднее чем за установленное количество дней (`CANCELLATION_DEADLINE_DAYS`) до даты заезда
+        """
         booking = self.get_object()
         if booking.tenant_id != request.user.id:
             return Response({'detail': 'Only the tenant can cancel this booking'}, status=403)

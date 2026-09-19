@@ -7,12 +7,18 @@ from apps.users.serializers import RegisterSerializer, UserSerializer
 
 
 class RegisterView(generics.CreateAPIView):
+    """
+    Публичный эндпоинт для регистрации новых пользователей
+    """
     queryset = User.objects.all()
     serializer_class = RegisterSerializer
     permission_classes = [permissions.AllowAny]
 
 
 class MeView(generics.RetrieveAPIView):
+    """
+    Эндпоинт для получения профиля текущего аутентифицированного пользователя
+    """
     serializer_class = UserSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -21,6 +27,11 @@ class MeView(generics.RetrieveAPIView):
 
 
 class BecomeLandlordView(APIView):
+    """
+    Эндпоинт для получения статуса арендодателя (landlord) текущим пользователем,
+    обрабатывает POST запросы. Если у пользователя еще не установлен флаг `is_landlord`,
+    переключает его в значение True, сохраняет в базе данных и возвращает обновленный профиль
+    """
     permission_classes = [permissions.IsAuthenticated]
     serializer_class = UserSerializer
 

@@ -8,17 +8,29 @@ from core.models import SoftDeleteModel, TimeStampedModel, UniqueID
 
 
 class AccountRole(models.TextChoices):
+    """
+    Выбор роли , при регистрации пользователя
+    """
     TENANT = 'tenant', 'Tenant'
     LANDLORD = 'landlord', 'Landlord'
 
 
 class AccountManager(BaseUserManager):
+    """
+    Кастомный менеджер пользователей для модели Account
+    """
     use_in_migrations = True
 
     def get_queryset(self):
+        """
+        Возвращает базовый quaryset, отфильтрованный по активным записям
+        """
         return super().get_queryset().filter(deleted_at__isnull=True)
 
     def create_user(self, email, password=None, **extra_fields):
+        """
+        Создает и сохраняет нового обычного пользователя
+        """
         if not email:
             raise ValueError('Users must have an email address.')
 
@@ -32,6 +44,9 @@ class AccountManager(BaseUserManager):
         return account
 
     def create_superuser(self, email, password=None, **extra_fields):
+        """
+        Создание суперпользователя(по дефолту является landlord)
+        """
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
         extra_fields.setdefault('role', AccountRole.LANDLORD)
@@ -45,6 +60,10 @@ class AccountManager(BaseUserManager):
 
 
 class User(UniqueID, TimeStampedModel, SoftDeleteModel, AbstractBaseUser, PermissionsMixin):
+    """
+    Кастомная модель пользователя. Аутентификация по email. Присутствует система ролей и механизм
+    мягкого удаления с сохранением истории изменений
+    """
     email = models.EmailField(unique=True, verbose_name='Email')
     name = models.CharField(max_length=150, verbose_name='Name')
     role = models.CharField(
@@ -74,11 +93,18 @@ class User(UniqueID, TimeStampedModel, SoftDeleteModel, AbstractBaseUser, Permis
         return self.email
 
     def delete(self, using=None, keep_parents=False):
+        """
+        Мягкое удаление учетной записи. Вместо физического удаления из БД подставляет метку времени
+        и деактивирует пользователя, обновляя эти поля
+        """
         self.deleted_at = timezone.now()
         self.is_active = False
         self.save(using=using, update_fields=['deleted_at', 'is_active'])
 
     def restore(self):
+        """
+        Восстановление удаленную учетную запись
+        """
         self.deleted_at = None
         self.is_active = True
         self.save(update_fields=['deleted_at', 'is_active'])
