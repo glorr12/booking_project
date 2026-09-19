@@ -9,6 +9,9 @@ from core.models import SoftDeleteModel, TimeStampedModel, UniqueID
 
 
 class BookingStatus(models.TextChoices):
+    """
+    Статусы жизненного цикла бронирования в системе
+    """
     PENDING = 'pending', 'Pending'
     CONFIRMED = 'confirmed', 'Confirmed'
     REJECTED = 'rejected', 'Rejected'
@@ -18,6 +21,9 @@ class BookingStatus(models.TextChoices):
 
 
 class Booking(UniqueID, TimeStampedModel, SoftDeleteModel):
+    """
+    Модель бронирования. Связывает арендатора, объявление, диапазон дат и текущий статус
+    """
     listing = models.ForeignKey(
         'listings.Listing',
         on_delete=models.CASCADE,
@@ -47,13 +53,16 @@ class Booking(UniqueID, TimeStampedModel, SoftDeleteModel):
         blank=True,
         editable=False,
         verbose_name='Total price',
-        help_text="Snapshot of listing.price × nights at the time the booking was made - "
-                  "doesn't change if the listing's price changes later.",
+        help_text="Snapshot of listing.price * nights at the time the booking was made "
+                  "doesn't change if the listing's price changes later",
     )
 
     history = HistoricalRecords()
 
     def clean(self):
+        """
+        Проверка валидности данных моделей перед сохранением
+        """
         super().clean()
         if self.start_date and self.end_date and self.end_date <= self.start_date:
             raise ValidationError('End date must be after start date.')

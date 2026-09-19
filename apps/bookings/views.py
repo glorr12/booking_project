@@ -60,6 +60,9 @@ class BookingViewSet(viewsets.ModelViewSet):
         )
 
     def _lock_and_check_dates(self, listing, start_date, end_date, exclude_booking_id=None):
+        """
+        Блокирует строку объявления и заново проверяет пересечения с бронями/блокировками
+        """
         Listing.objects.select_for_update().get(pk=listing.pk)
 
         still_overlapping = Booking.objects.filter(
@@ -93,6 +96,9 @@ class BookingViewSet(viewsets.ModelViewSet):
             serializer.save()
 
     def perform_update(self, serializer):
+        """
+        Заново проверяет пересечения дат, только если даты/объявления реально менялись
+        """
         instance = serializer.instance
         touches_dates = {'listing', 'start_date', 'end_date'} & serializer.validated_data.keys()
         if not touches_dates:
@@ -109,6 +115,9 @@ class BookingViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def confirm(self, request, pk=None):
+        """
+        Подтверждение владельцем бронь которая находится в статусе pending
+        """
         booking = self.get_object()
         if booking.listing.owner_id != request.user.id:
             return Response({'detail': 'Only the listing owner can confirm this booking'}, status=403)
@@ -120,6 +129,9 @@ class BookingViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def reject(self, request, pk=None):
+        """
+        Отклонение брони владельцем , которое находится в статусе pending
+        """
         booking = self.get_object()
         if booking.listing.owner_id != request.user.id:
             return Response({'detail': 'Only the listing owner can reject this booking'}, status=403)
@@ -147,6 +159,9 @@ class BookingViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], url_path='cancel-by-owner')
     def cancel_by_owner(self, request, pk=None):
+        """
+        Отмена брони владельцем на своём объявление(без какого либо ограничения по срокам)
+        """
         booking = self.get_object()
         if booking.listing.owner_id != request.user.id:
             return Response({'detail': 'Only the listing owner can cancel this booking.'}, status=403)

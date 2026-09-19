@@ -9,6 +9,10 @@ MAX_BOOKING_DURATION_DAYS = 30
 
 
 class BookingSerializer(serializers.ModelSerializer):
+    """
+    Сериалайзер для создания и изменения бронирования. Обрабатывает полезную нагрузку,
+    добавляет снимок цены , а так же выполняет валидацию дат и пересечений броней
+    """
 
     tenant = serializers.HiddenField(default=serializers.CurrentUserDefault())
     tenant_id = serializers.UUIDField(read_only=True)
@@ -26,16 +30,25 @@ class BookingSerializer(serializers.ModelSerializer):
         read_only_fields = ('id', 'status', 'total_price', 'created_at')
 
     def _price_for(self, listing, start_date, end_date):
+        """
+        Рассчитывает общую стоимость бронирования на основе цены за ночь и длительности проживания
+        """
         nights = (end_date - start_date).days
         return listing.price * nights
 
     def create(self, validated_data):
+        """
+        Создает объект бронирования, предварительно вычисляя и поставляя итоговую стоимость
+        """
         validated_data['total_price'] = self._price_for(
             validated_data['listing'], validated_data['start_date'], validated_data['end_date'],
         )
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
+        """
+        Пересчитывает и обновляет стоимость букинга , если в передаваемых данных изменился листинг или диапазон дат
+        """
         if {'listing', 'start_date', 'end_date'} & validated_data.keys():
             listing = validated_data.get('listing', instance.listing)
             start_date = validated_data.get('start_date', instance.start_date)
@@ -44,6 +57,10 @@ class BookingSerializer(serializers.ModelSerializer):
         return super().update(instance, validated_data)
 
     def validate(self, attrs):
+        """
+        Проверка дат , лимита длительности, числа гостей и предварительная проверка пересечений
+        с активными бронями и с датами, которые перекрыты владельцем
+        """
         start_date = attrs.get('start_date', getattr(self.instance, 'start_date', None))
         end_date = attrs.get('end_date', getattr(self.instance, 'end_date', None))
         listing = attrs.get('listing', getattr(self.instance, 'listing', None))
