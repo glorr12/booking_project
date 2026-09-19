@@ -11,18 +11,44 @@ from apps.bookings.models import Booking, BookingStatus
 from apps.bookings.serializers import BookingSerializer
 from apps.listings.models import BlockedDateRange, Listing
 
-CANCELLATION_DEADLINE_DAYS = 1
+CANCELLATION_DEADLINE_DAYS = 3
 
 
 class IsTenantOrListingOwner(permissions.BasePermission):
+    """
+     Правила доступа на уровне объекта для отдельного бронирования.
+    Оба участника могут просматривать бронирование, но только арендатор может изменять его условия через
+    общие конечные точки обновления. единственные способы, которыми владелец может повлиять на бронирование — это специальные
+    действия "confirm"/"reject"/"cancel-by-owner" приведенные ниже, которые выполняют собственную явную
+    проверку прав владения. "update"/"partial_update" намеренно исключены из этого списка разрешенных действий
+    если бы владельцу было разрешено использовать "PATCH" для бронирования арендатора, он мог бы незаметно изменить чужие
+    даты или количество гостей вне рабочего процесса подтверждения/отклонения/отмены. Простое "DELETE" не
+    указано ни для кого поскольку у «Booking» нет собственной функции «мягкого удаления»,
+     поэтому жесткое удаление привело бы к каскадному удалению «Review» арендатора,
+    вместо этого используются действия cancel/cancel-by-owner, которые просто меняют status
+    """
+
+    OBJECT_ACTIONS_OPEN_TO_OWNER = {'confirm', 'reject', 'cancel', 'cancel_by_owner'}
 
     def has_object_permission(self, request, view, obj):
-        return obj.tenant_id == request.user.id or obj.listing.owner_id == request.user.id
+        is_tenant = obj.tenant_id == request.user.id
+        is_owner = obj.listing.owner_id == request.user.id
+
+        if request.method in permissions.SAFE_METHODS:
+            return is_tenant or is_owner
+
+        if getattr(view, 'action', None) in self.OBJECT_ACTIONS_OPEN_TO_OWNER:
+            return is_tenant or is_owner
+        return is_tenant
 
 
 class BookingViewSet(viewsets.ModelViewSet):
+    """
+    Обычный CRUD , кроме "PUT" "DELETE"
+    """
     serializer_class = BookingSerializer
     permission_classes = [permissions.IsAuthenticated, IsTenantOrListingOwner]
+    http_method_names = ['get', 'post', 'patch', 'head', 'options']
 
     def get_queryset(self):
         if getattr(self, 'swagger_fake_view', False):

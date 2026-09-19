@@ -1,12 +1,18 @@
+from datetime import timedelta
+
+from django.db import transaction
 from django.db.models import Avg, Count, Q
+from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import filters, permissions, viewsets
+from rest_framework import filters, permissions, serializers, viewsets
 from rest_framework.response import Response
 
 from apps.listings.filters import ListingFilter
 from apps.listings.models import BlockedDateRange, Listing, ListingImage
 from apps.listings.serializers import BlockedDateRangeSerializer, ListingImageSerializer, ListingSerializer
 from apps.statistics.models import ListingView, SearchQuery
+
+VIEW_DEDUP_WINDOW_MINUTES = 30
 
 
 class IsOwnerOrReadOnly(permissions.BasePermission):
@@ -53,17 +59,22 @@ class ListingViewSet(viewsets.ModelViewSet):
         keyword = request.query_params.get('search')
         if keyword:
             SearchQuery.objects.create(
-                keyword=keyword,
+                keyword=keyword.strip().lower(),
                 user=request.user if request.user.is_authenticated else None,
             )
         return super().list(request, *args, **kwargs)
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
-        ListingView.objects.create(
+        user = request.user if request.user.is_authenticated else None
+        is_owner_viewing = user is not None and user.id == instance.owner_id
+        recently_viewed = user is not None and ListingView.objects.filter(
             listing=instance,
-            user=request.user if request.user.is_authenticated else None,
-        )
+            user=user,
+            created_at__gte=timezone.now() - timedelta(minutes=VIEW_DEDUP_WINDOW_MINUTES),
+        ).exists()
+        if not is_owner_viewing and not recently_viewed:
+            ListingView.objects.create(listing=instance, user=user)
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
 
@@ -84,3 +95,55 @@ class BlockedDateRangeViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ('listing',)
     http_method_names = ['get', 'post', 'patch', 'delete', 'head', 'options']
+
+    def _lock_and_check_dates(self, listing, start_date, end_date, exclude_range_id=None):
+        Listing.objects.select_for_update().get(pk=listing.pk)
+
+        from apps.bookings.models import Booking, BookingStatus
+
+        overlapping_bookings = Booking.objects.filter(
+            listing=listing,
+            status__in=[BookingStatus.PENDING, BookingStatus.CONFIRMED],
+            start_date__lt=end_date,
+            end_date__gt=start_date,
+        )
+        if overlapping_bookings.exists():
+            raise serializers.ValidationError(
+                {'non_field_errors': ['These dates already have a booking']}
+            )
+
+        overlapping_ranges = BlockedDateRange.objects.filter(
+            listing=listing,
+            start_date__lt=end_date,
+            end_date__gt=start_date,
+        )
+        if exclude_range_id:
+            overlapping_ranges = overlapping_ranges.exclude(pk=exclude_range_id)
+        if overlapping_ranges.exists():
+            raise serializers.ValidationError(
+                {'non_field_errors': ['These dates are already blocked']}
+            )
+
+    def perform_create(self, serializer):
+        listing = serializer.validated_data['listing']
+        start_date = serializer.validated_data['start_date']
+        end_date = serializer.validated_data['end_date']
+
+        with transaction.atomic():
+            self._lock_and_check_dates(listing, start_date, end_date)
+            serializer.save()
+
+    def perform_update(self, serializer):
+        instance = serializer.instance
+        touches_dates = {'listing', 'start_date', 'end_date'} & serializer.validated_data.keys()
+        if not touches_dates:
+            serializer.save()
+            return
+
+        listing = serializer.validated_data.get('listing', instance.listing)
+        start_date = serializer.validated_data.get('start_date', instance.start_date)
+        end_date = serializer.validated_data.get('end_date', instance.end_date)
+
+        with transaction.atomic():
+            self._lock_and_check_dates(listing, start_date, end_date, exclude_range_id=instance.pk)
+            serializer.save()

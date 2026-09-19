@@ -76,7 +76,7 @@ def test_search_logs_search_query(api_client, listing):
     response = api_client.get('/api/listings/', {'search': 'Berlin'})
 
     assert response.status_code == 200
-    assert SearchQuery.objects.filter(keyword='Berlin').exists()
+    assert SearchQuery.objects.filter(keyword='berlin').exists()
 
 
 @pytest.mark.django_db
@@ -354,3 +354,66 @@ def test_max_guests_defaults_to_one(auth_client, landlord):
 
     assert response.status_code == 201
     assert response.data['max_guests'] == 1
+
+
+@pytest.mark.django_db
+def test_zero_rooms_rejected_at_db_level(landlord):
+    from django.db import IntegrityError
+
+    with pytest.raises(IntegrityError):
+        Listing.objects.create(
+            owner=landlord, title='Bypasses serializer', description='d', city='Munich',
+            rooms_count=0, housing_type=HousingType.STUDIO, price=100,
+        )
+
+
+@pytest.mark.django_db
+def test_price_filter_is_currency_aware(api_client, landlord):
+    from djmoney.money import Money
+
+    eur_listing = Listing.objects.create(
+        owner=landlord, title='Cheap in EUR', description='d', city='Munich',
+        rooms_count=1, housing_type=HousingType.STUDIO, price=Money(50, 'EUR'),
+    )
+    usd_listing = Listing.objects.create(
+        owner=landlord, title='Expensive in USD', description='d', city='Munich',
+        rooms_count=1, housing_type=HousingType.STUDIO, price=Money(50, 'USD'),
+    )
+
+    response = api_client.get('/api/listings/', {'price_min': 40, 'price_currency': 'EUR'})
+
+    data = response.data['results'] if isinstance(response.data, dict) else response.data
+    ids = {item['id'] for item in data}
+    assert str(eur_listing.pk) in ids
+    assert str(usd_listing.pk) not in ids
+
+
+@pytest.mark.django_db
+def test_blocked_dates_cannot_overlap_each_other(auth_client, landlord, listing):
+    from apps.listings.models import BlockedDateRange
+
+    BlockedDateRange.objects.create(
+        listing=listing, start_date=date(2026, 11, 1), end_date=date(2026, 11, 10),
+    )
+
+    response = auth_client(landlord).post('/api/listings/blocked-dates/', {
+        'listing': str(listing.pk), 'start_date': '2026-11-05', 'end_date': '2026-11-15',
+    }, format='json')
+
+    assert response.status_code == 400
+
+
+@pytest.mark.django_db
+def test_cannot_block_dates_that_already_have_a_booking(auth_client, landlord, listing, tenant):
+    Booking.objects.create(
+        listing=listing, tenant=tenant,
+        start_date=date.today() + timedelta(days=10), end_date=date.today() + timedelta(days=15),
+    )
+
+    response = auth_client(landlord).post('/api/listings/blocked-dates/', {
+        'listing': str(listing.pk),
+        'start_date': str(date.today() + timedelta(days=12)),
+        'end_date': str(date.today() + timedelta(days=20)),
+    }, format='json')
+
+    assert response.status_code == 400

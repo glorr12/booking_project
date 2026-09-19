@@ -84,3 +84,31 @@ def test_rating_below_min_rejected(auth_client, tenant, completed_booking):
 
     assert response.status_code == 400
     assert not Review.objects.filter(booking=completed_booking).exists()
+
+
+@pytest.mark.django_db
+def test_can_edit_own_review(auth_client, tenant, completed_booking):
+    review = Review.objects.create(
+        booking=completed_booking, listing=completed_booking.listing, author=tenant,
+        rating=3, text='Okay stay',
+    )
+    client = auth_client(tenant)
+
+    response = client.patch(f'/api/reviews/{review.pk}/', {'rating': 5, 'text': 'Actually great'}, format='json')
+
+    assert response.status_code == 200
+    review.refresh_from_db()
+    assert review.rating == 5
+    assert review.text == 'Actually great'
+
+
+@pytest.mark.django_db
+def test_review_response_includes_author_id(auth_client, tenant, completed_booking):
+    client = auth_client(tenant)
+
+    response = client.post('/api/reviews/', {
+        'booking': str(completed_booking.pk), 'rating': 5, 'text': 'Great stay!',
+    }, format='json')
+
+    assert response.status_code == 201
+    assert response.data['author_id'] == str(tenant.pk)

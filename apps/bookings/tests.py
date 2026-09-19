@@ -253,6 +253,7 @@ def test_total_price_recalculated_on_date_change(auth_client, tenant, listing):
 
 @pytest.mark.django_db
 def test_cannot_change_dates_once_confirmed(auth_client, landlord, tenant, pending_booking):
+    original_end_date = pending_booking.end_date
     auth_client(landlord).post(f'/api/bookings/{pending_booking.pk}/confirm/')
 
     response = auth_client(tenant).patch(f'/api/bookings/{pending_booking.pk}/', {
@@ -261,7 +262,7 @@ def test_cannot_change_dates_once_confirmed(auth_client, landlord, tenant, pendi
 
     assert response.status_code == 400
     pending_booking.refresh_from_db()
-    assert pending_booking.end_date != pending_booking.end_date + timedelta(days=5)
+    assert pending_booking.end_date == original_end_date
 
 
 @pytest.mark.django_db
@@ -335,3 +336,56 @@ def test_expire_pending_bookings_command(listing, tenant):
 def timezone_now_minus_hours(hours):
     from django.utils import timezone
     return timezone.now() - timedelta(hours=hours)
+
+
+@pytest.mark.django_db
+def test_owner_cannot_patch_tenants_booking(auth_client, landlord, pending_booking):
+    response = auth_client(landlord).patch(f'/api/bookings/{pending_booking.pk}/', {
+        'guests_count': 3,
+    }, format='json')
+
+    assert response.status_code == 403
+    pending_booking.refresh_from_db()
+    assert pending_booking.guests_count != 3
+
+
+@pytest.mark.django_db
+def test_owner_can_still_confirm_reject_and_cancel_by_owner(auth_client, landlord, listing, tenant):
+    start = date.today() + timedelta(days=10)
+    end = start + timedelta(days=5)
+    booking = Booking.objects.create(listing=listing, tenant=tenant, start_date=start, end_date=end)
+    response = auth_client(landlord).post(f'/api/bookings/{booking.pk}/confirm/')
+    assert response.status_code == 200
+
+    response = auth_client(landlord).post(f'/api/bookings/{booking.pk}/cancel-by-owner/')
+    assert response.status_code == 200
+
+
+@pytest.mark.django_db
+def test_tenant_cannot_confirm_own_booking(auth_client, tenant, pending_booking):
+    response = auth_client(tenant).post(f'/api/bookings/{pending_booking.pk}/confirm/')
+    assert response.status_code == 403
+
+
+@pytest.mark.django_db
+def test_booking_delete_not_allowed(auth_client, tenant, landlord, pending_booking):
+    assert auth_client(tenant).delete(f'/api/bookings/{pending_booking.pk}/').status_code == 405
+    assert auth_client(landlord).delete(f'/api/bookings/{pending_booking.pk}/').status_code == 405
+
+
+@pytest.mark.django_db
+def test_booking_soft_delete_keeps_review_alive(listing, tenant):
+    from apps.reviews.models import Review
+
+    start = date.today() - timedelta(days=10)
+    end = start + timedelta(days=2)
+    booking = Booking.objects.create(
+        listing=listing, tenant=tenant, start_date=start, end_date=end,
+        status=BookingStatus.COMPLETED,
+    )
+    review = Review.objects.create(booking=booking, listing=listing, author=tenant, rating=5, text='Great!')
+
+    booking.delete()
+    assert Review.objects.filter(pk=review.pk).exists()
+    assert not Booking.objects.filter(pk=booking.pk).exists()
+    assert Booking.all_objects.filter(pk=booking.pk).exists()

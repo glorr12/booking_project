@@ -5,7 +5,6 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.listings.models import Listing
-from apps.listings.serializers import ListingSerializer
 from apps.statistics.models import SearchQuery
 from apps.statistics.serializers import PopularListingSerializer, PopularSearchSerializer
 
@@ -28,11 +27,8 @@ class PopularListingsView(APIView):
             )
             .order_by('-views_count')[:POPULAR_LIMIT]
         )
-        serializer = ListingSerializer(listings, many=True, context={'request': request})
-        data = serializer.data
-        for item, listing in zip(data, listings):
-            item['views_count'] = listing.views_count
-        return Response(data)
+        serializer = PopularListingSerializer(listings, many=True, context={'request': request})
+        return Response(serializer.data)
 
 
 class PopularSearchesView(APIView):
