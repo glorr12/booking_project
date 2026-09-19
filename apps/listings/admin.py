@@ -2,6 +2,7 @@ from django.contrib import admin
 from simple_history.admin import SimpleHistoryAdmin
 
 from apps.listings.models import BlockedDateRange, Listing, ListingImage
+from core.admin import SoftDeleteAdminMixin
 
 
 class ListingImageInline(admin.TabularInline):
@@ -10,9 +11,12 @@ class ListingImageInline(admin.TabularInline):
 
 
 @admin.register(Listing)
-class ListingAdmin(SimpleHistoryAdmin):
-    list_display = ('title', 'owner', 'city', 'price', 'housing_type', 'is_active', 'max_guests', 'created_at')
-    list_filter = ('housing_type', 'is_active', 'city')
+class ListingAdmin(SoftDeleteAdminMixin, SimpleHistoryAdmin):
+    list_display = (
+        'title', 'owner', 'city', 'price', 'housing_type', 'is_active', 'max_guests',
+        'is_deleted', 'created_at',
+    )
+    list_filter = ('housing_type', 'is_active', 'city', ('deleted_at', admin.EmptyFieldListFilter))
     search_fields = ('title', 'city', 'district')
     inlines = [ListingImageInline]
 

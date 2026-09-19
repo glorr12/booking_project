@@ -41,6 +41,16 @@ class Listing(UniqueID, TimeStampedModel, SoftDeleteModel):
         ordering = ('-created_at',)
         verbose_name = 'Listing'
         verbose_name_plural = 'Listings'
+        constraints = [
+            models.CheckConstraint(
+                condition=Q(rooms_count__gte=1),
+                name='listing_rooms_count_at_least_1',
+            ),
+            models.CheckConstraint(
+                condition=Q(max_guests__gte=1),
+                name='listing_max_guests_at_least_1',
+            ),
+        ]
 
 
 class ListingImage(UniqueID, TimeStampedModel):
@@ -50,7 +60,7 @@ class ListingImage(UniqueID, TimeStampedModel):
         related_name='images',
         verbose_name='Listing',
     )
-    image = models.ImageField(upload_to='booking_project/media/photos', verbose_name='Image')
+    image = models.ImageField(upload_to='listings/photos', verbose_name='Image')
     order = models.PositiveIntegerField(default=0, verbose_name='Order')
 
     def __str__(self):

@@ -5,7 +5,7 @@ from django.db.models import F, Q
 from djmoney.models.fields import MoneyField
 from simple_history.models import HistoricalRecords
 
-from core.models import TimeStampedModel, UniqueID
+from core.models import SoftDeleteModel, TimeStampedModel, UniqueID
 
 
 class BookingStatus(models.TextChoices):
@@ -17,7 +17,7 @@ class BookingStatus(models.TextChoices):
     EXPIRED = 'expired', 'Expired'
 
 
-class Booking(UniqueID, TimeStampedModel):
+class Booking(UniqueID, TimeStampedModel, SoftDeleteModel):
     listing = models.ForeignKey(
         'listings.Listing',
         on_delete=models.CASCADE,

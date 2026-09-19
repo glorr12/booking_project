@@ -3,13 +3,19 @@ from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
 from simple_history.admin import SimpleHistoryAdmin
 
 from apps.users.models import User
+from core.admin import SoftDeleteAdminMixin
 
 
 @admin.register(User)
-class UserAdmin(SimpleHistoryAdmin, DjangoUserAdmin):
+class UserAdmin(SoftDeleteAdminMixin, SimpleHistoryAdmin, DjangoUserAdmin):
     model = User
-    list_display = ('email', 'name', 'role', 'is_landlord', 'is_staff', 'is_active', 'created_at')
-    list_filter = ('role', 'is_landlord', 'is_staff', 'is_active')
+    list_display = (
+        'email', 'name', 'role', 'is_landlord', 'is_staff', 'is_active', 'is_deleted',
+        'created_at',
+    )
+    list_filter = (
+        'role', 'is_landlord', 'is_staff', 'is_active', ('deleted_at', admin.EmptyFieldListFilter),
+    )
     search_fields = ('email', 'name')
     ordering = ('-created_at',)
 
