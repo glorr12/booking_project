@@ -6,6 +6,14 @@ from apps.reviews.models import Review
 
 
 class ReviewSerializer(serializers.ModelSerializer):
+    """
+    Сериализатор для создания и обновления отзывов.
+    Что реализовано:
+    Автоматически подставляет текущего пользователя как автора через `CurrentUserDefault`.
+    Валидирует, что отзыв оставляет именно арендатор по завершенному бронированию.
+    Проверяет отсутствие дубликатов отзывов для одного бронирования.
+    Автоматически привязывает листинг на основе выбранного `booking`.
+    """
     author = serializers.HiddenField(default=serializers.CurrentUserDefault())
     author_id = serializers.UUIDField(read_only=True)
     author_name = serializers.CharField(source='author.name', read_only=True)
@@ -21,6 +29,14 @@ class ReviewSerializer(serializers.ModelSerializer):
         read_only_fields = ('id', 'listing', 'created_at')
 
     def validate(self, attrs):
+        """
+        Комплексная валидация  бронирования и отзыва.
+        Проверяет:
+            Принадлежность бронирования текущему пользователю.
+            Статус бронирования (должен быть COMPLETED).
+            Отсутствие существующего отзыва для данной брони.
+            Автоматически проставляет листинг из бронирования
+        """
         request = self.context.get('request')
         booking = attrs.get('booking', getattr(self.instance, 'booking', None))
 

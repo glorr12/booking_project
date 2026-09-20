@@ -7,6 +7,14 @@ from core.models import TimeStampedModel, UniqueID
 
 
 class Review(UniqueID, TimeStampedModel):
+    """
+    Модель отзыва пользователя о листинге недвижимости.
+    Что реализовано:
+    Жесткая привязка к конкретному бронированию через OneToOneField.
+    Содержит CheckConstraint для валидации диапазона рейтинга (от 1 до 5) на уровне СУБД.
+    Содержит UniqueConstraint для предотвращения дублирования отзывов от одного автора на один листинг.
+    Поддерживает ведение истории изменений (django-simple-history).
+    """
     booking = models.OneToOneField(
         'bookings.Booking',
         on_delete=models.CASCADE,

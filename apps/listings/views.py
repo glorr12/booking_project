@@ -16,13 +16,28 @@ VIEW_DEDUP_WINDOW_MINUTES = 30
 
 
 class IsOwnerOrReadOnly(permissions.BasePermission):
+    """
+    Кастомный класс разрешений для DRF
+
+    Разрешает безопасные методы (GET, HEAD, OPTIONS) для любых пользователей,
+    а операции изменения (POST, PUT, PATCH, DELETE) разрешает только владельцу объекта
+    """
     def has_object_permission(self, request, view, obj):
+        """
+        Проверяет права доступа к конкретному экземпляру модели на уровне объекта
+        """
         if request.method in permissions.SAFE_METHODS:
             return True
         return obj.owner_id == request.user.id
 
 
 class IsListingOwnerOrReadOnly(permissions.BasePermission):
+    """
+    Кастомный класс разрешений  для DRF для сущностей, связанных с листингом
+
+    Разрешает безопасные методы (GET, HEAD, OPTIONS) для всех пользователей,
+    а операции модификации разрешает исключительно владельцу родительского листинга
+    """
     def has_object_permission(self, request, view, obj):
         if request.method in permissions.SAFE_METHODS:
             return True
@@ -30,6 +45,9 @@ class IsListingOwnerOrReadOnly(permissions.BasePermission):
 
 
 class ListingViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet для управления листингами недвижимости
+    """
     serializer_class = ListingSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsOwnerOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
@@ -38,6 +56,9 @@ class ListingViewSet(viewsets.ModelViewSet):
     ordering_fields = ('price', 'created_at', 'average_rating', 'reviews_count')
 
     def get_queryset(self):
+        """
+        Формирует базовый оптимизированный QuerySet с учетом прав доступа и статуса авторизации
+        """
         if getattr(self, 'swagger_fake_view', False):
             return Listing.objects.none()
 
@@ -56,6 +77,9 @@ class ListingViewSet(viewsets.ModelViewSet):
         return qs.filter(pk__in=visible_ids)
 
     def list(self, request, *args, **kwargs):
+        """
+        Обрабатывает GET-запрос списка листингов. Логирует поисковый запрос, если передан параметр search
+        """
         keyword = request.query_params.get('search')
         if keyword:
             SearchQuery.objects.create(
@@ -65,6 +89,9 @@ class ListingViewSet(viewsets.ModelViewSet):
         return super().list(request, *args, **kwargs)
 
     def retrieve(self, request, *args, **kwargs):
+        """
+        Обрабатывает GET-запрос детальной информации по листингу с защитой от накрутки просмотров
+        """
         instance = self.get_object()
         user = request.user if request.user.is_authenticated else None
         is_owner_viewing = user is not None and user.id == instance.owner_id
@@ -80,6 +107,10 @@ class ListingViewSet(viewsets.ModelViewSet):
 
 
 class ListingImageViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet для управления изображениями листингов.
+    Разрешает операции чтения всем, а изменения только владельцу родительского листинга
+    """
     queryset = ListingImage.objects.select_related('listing')
     serializer_class = ListingImageSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsListingOwnerOrReadOnly]
@@ -89,6 +120,11 @@ class ListingImageViewSet(viewsets.ModelViewSet):
 
 
 class BlockedDateRangeViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet для управления периодами заблокированных дат владельцем листинга.
+    Реализует строгую защиту от параллельных бронирований и пересечений дат
+    с помощью блокировки строк в БД
+    """
     queryset = BlockedDateRange.objects.select_related('listing')
     serializer_class = BlockedDateRangeSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly, IsListingOwnerOrReadOnly]
@@ -97,6 +133,9 @@ class BlockedDateRangeViewSet(viewsets.ModelViewSet):
     http_method_names = ['get', 'post', 'patch', 'delete', 'head', 'options']
 
     def _lock_and_check_dates(self, listing, start_date, end_date, exclude_range_id=None):
+        """
+        Блокирует строку листинга в базе данных и проверяет отсутствие пересечений с активными бронями и блокировками
+        """
         Listing.objects.select_for_update().get(pk=listing.pk)
 
         from apps.bookings.models import Booking, BookingStatus
@@ -125,6 +164,9 @@ class BlockedDateRangeViewSet(viewsets.ModelViewSet):
             )
 
     def perform_create(self, serializer):
+        """
+        Создает заблокированный диапазон дат внутри атомарной транзакции с предварительной блокировкой
+        """
         listing = serializer.validated_data['listing']
         start_date = serializer.validated_data['start_date']
         end_date = serializer.validated_data['end_date']
@@ -134,6 +176,9 @@ class BlockedDateRangeViewSet(viewsets.ModelViewSet):
             serializer.save()
 
     def perform_update(self, serializer):
+        """
+        Обновляет заблокированный диапазон дат внутри атомарной транзакции с проверкой пересечений
+        """
         instance = serializer.instance
         touches_dates = {'listing', 'start_date', 'end_date'} & serializer.validated_data.keys()
         if not touches_dates:
