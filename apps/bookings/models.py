@@ -22,7 +22,11 @@ class BookingStatus(models.TextChoices):
 
 class Booking(UniqueID, TimeStampedModel, SoftDeleteModel):
     """
-    Модель бронирования. Связывает арендатора, объявление, диапазон дат и текущий статус
+    Модель бронирования. Связывает арендатора, объявление, диапазон дат и текущий статус.
+    Так же реализовано:
+    Наследует SoftDeleteModel удаление брони является мягким, сохраняя связанные Review.
+    total_price хранит фиксированный "снимок" стоимости на момент создания бронирования.
+    Содержит ограничения на уровне СУБД  и составные индексы для быстрой проверки пересечений дат
     """
     listing = models.ForeignKey(
         'listings.Listing',
@@ -80,4 +84,8 @@ class Booking(UniqueID, TimeStampedModel, SoftDeleteModel):
                 condition=Q(end_date__gt=F('start_date')),
                 name='booking_end_date_after_start_date',
             ),
+        ]
+        indexes = [
+            models.Index(fields=['listing', 'status', 'start_date', 'end_date'], name='booking_overlap_index'),
+            models.Index(fields=['status', 'created_at'], name='booking_status_created_index')
         ]

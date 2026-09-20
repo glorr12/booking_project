@@ -9,12 +9,23 @@ from core.models import SoftDeleteModel, TimeStampedModel, UniqueID
 
 
 class HousingType(models.TextChoices):
+    """
+    Типы жилья, доступные для размещения в системе бронирования
+    """
     APARTMENT = 'apartment', 'Apartment'
     HOUSE = 'house', 'House'
     STUDIO = 'studio', 'Studio'
 
 
 class Listing(UniqueID, TimeStampedModel, SoftDeleteModel):
+    """
+    Основная модель объекта недвижимости (листинга)
+    в моделе реализованы:
+    Защищена от удаления владельца.
+    Поддерживает мягкое удаление.
+    Содержит ограничения на уровне СУБД для проверки минимального количества комнат и гостей
+    Индексирована для ускорения фильтрации по активности, дате создания, городу, типу жилья и валюте цены.
+    """
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
@@ -51,9 +62,17 @@ class Listing(UniqueID, TimeStampedModel, SoftDeleteModel):
                 name='listing_max_guests_at_least_1',
             ),
         ]
-
+    indexes = [
+        models.Index(fields=['is_active', '-created_at'], name='listing_active_created_index'),
+        models.Index(fields=['city'],name="listing_city_index"),
+        models.Index(fields=['housing_type'],name="listing_housing_type_index"),
+        models.Index(fields=['price_currency'],name="listing_price_index"),
+    ]
 
 class ListingImage(UniqueID, TimeStampedModel):
+    """
+    Модель изображений, привязанных к объекту недвижимости
+    """
     listing = models.ForeignKey(
         Listing,
         on_delete=models.CASCADE,
@@ -74,6 +93,9 @@ class ListingImage(UniqueID, TimeStampedModel):
 
 
 class BlockedDateRange(UniqueID, TimeStampedModel):
+    """
+    Модель заблокированных владельцем дат для листинга (периоды, когда объект недоступен для бронирования)
+    """
     listing = models.ForeignKey(
         Listing,
         on_delete=models.CASCADE,
@@ -85,6 +107,9 @@ class BlockedDateRange(UniqueID, TimeStampedModel):
     reason = models.CharField(max_length=255, blank=True, verbose_name='Reason')
 
     def clean(self):
+        """
+        Проверяет корректность диапазона дат перед сохранением
+        """
         super().clean()
         if self.start_date and self.end_date and self.end_date <= self.start_date:
             raise ValidationError('End date must be after start date.')
@@ -102,4 +127,7 @@ class BlockedDateRange(UniqueID, TimeStampedModel):
                 condition=Q(end_date__gt=F('start_date')),
                 name='blocked_range_end_date_after_start_date',
             ),
+        ]
+        indexes = [
+            models.Index(fields=['listing', 'start_date', 'end_date'], name='blocked_range_overlap_index'),
         ]

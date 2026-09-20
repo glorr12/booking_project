@@ -5,6 +5,11 @@ from core.models import TimeStampedModel, UniqueID
 
 
 class SearchQuery(UniqueID, TimeStampedModel):
+    """
+    Модель для логирования поисковых запросов пользователей.
+    Используется для аналитики популярности ключевых слов и отслеживания интересов аудитории.
+    Поддерживает анонимные запросы (поле user может быть null)
+    """
 
     keyword = models.CharField(max_length=255, verbose_name='Keyword')
     user = models.ForeignKey(
@@ -24,9 +29,17 @@ class SearchQuery(UniqueID, TimeStampedModel):
         ordering = ('-created_at',)
         verbose_name = 'Search query'
         verbose_name_plural = 'Search queries'
+        indexes = [
+            models.Index(fields=['keyword'],name='search_query_keyword_index'),
+        ]
 
 
 class ListingView(UniqueID, TimeStampedModel):
+    """
+    Модель для логирования просмотров листингов пользователями.
+    Применяется для реализации дедупликации просмотров в заданном временном окне
+    и сбора статистики популярности объектов недвижимости
+    """
     listing = models.ForeignKey(
         'listings.Listing',
         on_delete=models.CASCADE,
@@ -50,3 +63,6 @@ class ListingView(UniqueID, TimeStampedModel):
         ordering = ('-created_at',)
         verbose_name = 'Listing view'
         verbose_name_plural = 'Listing views'
+        indexes = [
+            models.Index(fields=['listing', 'user', 'created_at'],name='listing_view_user_index'),
+        ]
