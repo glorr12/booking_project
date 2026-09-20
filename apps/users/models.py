@@ -92,6 +92,16 @@ class User(UniqueID, TimeStampedModel, SoftDeleteModel, AbstractBaseUser, Permis
     def __str__(self):
         return self.email
 
+    def save(self,*args, **kwargs):
+        """
+        Переопределенный метод сохранения модели пользователя.
+        Автоматически устанавливает флаг `is_landlord` в True,
+        если роль пользователя в системе соответствует `AccountRole.LANDLORD`.
+        """
+        if self.role == AccountRole.LANDLORD:
+            self.is_landlord = True
+        super().save(*args, **kwargs)
+
     def delete(self, using=None, keep_parents=False):
         """
         Мягкое удаление учетной записи. Вместо физического удаления из БД подставляет метку времени
