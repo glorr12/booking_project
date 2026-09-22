@@ -19,6 +19,12 @@ class ListingImageSerializer(serializers.ModelSerializer):
         fields = ('id', 'listing', 'image', 'order')
         read_only_fields = ('id',)
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        if instance.image:
+            data['image'] = instance.image.url
+        return data
+
     def validate_listing(self, listing):
         """
         Проверяет, что текущий пользователь является владельцем листинга, к которому добавляется фото
