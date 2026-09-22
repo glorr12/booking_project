@@ -11,7 +11,7 @@ from apps.bookings.models import Booking, BookingStatus
 from apps.bookings.serializers import BookingSerializer
 from apps.listings.models import BlockedDateRange, Listing
 
-CANCELLATION_DEADLINE_DAYS = 3
+CANCELLATION_DEADLINE_DAYS = 1
 
 
 class IsTenantOrListingOwner(permissions.BasePermission):
