@@ -1,0 +1,15 @@
+SECRET_KEY=django-insecure-ypd+y_z+27n%1(39^so%uzlg_j_r)u!(x)vjmo5aixds48llj(
+
+DEBUG=True
+
+ALLOWED_HOSTS=0.0.0.0,127.0.0.1,localhost,localhost:5173,web,16.171.44.186
+CSRF_TRUSTED_ORIGINS=http://16.171.44.186,http://localhost:5173,http://127.0.0.1:5173,http://<EC2_PUBLIC_IP>:8000,http://<EC2_PUBLIC_IP>:5173
+
+MYSQL=False
+DB_NAME=django_project
+DB_USER=username
+DB_PASSWORD=password
+DB_HOST=localhost
+DB_PORT=3306
+
+DEFAULT_FROM_EMAIL='django.core.mail.backends.console.EmailBackend'
